@@ -8,11 +8,11 @@ const SERVICE_UUID: Uuid = Uuid::from_u128(0x7e4e1701_1ea6_40c9_9dcc_13d34ffead5
 const DATA_CHAR_UUID: Uuid = Uuid::from_u128(0x7e4e1702_1ea6_40c9_9dcc_13d34ffead57);
 const CTRL_CHAR_UUID: Uuid = Uuid::from_u128(0x7e4e1703_1ea6_40c9_9dcc_13d34ffead57);
 
-const CMD_START_WEIGHT_MEAS: u8 = 101;
-const CMD_STOP_WEIGHT_MEAS: u8 = 102;
-const CMD_TARE_SCALE: u8 = 100;
+const CMD_START_WEIGHT_MEAS: u8 = 0x65;
+const CMD_STOP_WEIGHT_MEAS: u8 = 0x66;
+const CMD_TARE_SCALE: u8 = 0x64;
 
-const RES_WEIGHT_MEAS: u8 = 1;
+const RES_WEIGHT_MEAS: u8 = 0x01;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
