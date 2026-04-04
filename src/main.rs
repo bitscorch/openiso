@@ -3,7 +3,8 @@
 use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter, WriteType};
 use btleplug::platform::Manager;
 use futures::StreamExt;
-use std::time::Duration;
+use std::io::Write;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 const SERVICE_UUID: Uuid = Uuid::from_u128(0x7e4e1701_1ea6_40c9_9dcc_13d34ffead57);
@@ -76,6 +77,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Start weight measurement
     println!("Starting measurement... (Ctrl+C to stop)");
+    println!("    MVC:   0.0 kg");
+    println!("Current:   0.0 kg | 0.0s");
     progressor
         .write(ctrl_char, &[CMD_START_WEIGHT_MEAS], WriteType::WithResponse)
         .await?;
@@ -83,6 +86,9 @@ async fn main() -> anyhow::Result<()> {
     let mut stream = progressor.notifications().await?;
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c);
+
+    let mut max_weight: f32 = 0.0;
+    let start = Instant::now();
 
     loop {
         tokio::select! {
@@ -93,8 +99,12 @@ async fn main() -> anyhow::Result<()> {
                         for chunk in data[2..].chunks(8) {
                             if chunk.len() == 8 {
                                 let weight = f32::from_le_bytes(chunk[0..4].try_into().unwrap());
-                                let timestamp = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
-                                println!("{:.1} kg  (t: {} µs)", weight, timestamp);
+                                if weight > max_weight {
+                                    max_weight = weight;
+                                }
+                                let elapsed = start.elapsed().as_secs_f64();
+                                print!("\x1b[2K\x1b[1A\x1b[2K\x1b[1A\x1b[2K\r    MVC: {:5.1} kg\nCurrent: {:5.1} kg | {:.1}s", max_weight, weight, elapsed);
+                                std::io::stdout().flush().ok();
                             }
                         }
                     }
@@ -111,6 +121,7 @@ async fn main() -> anyhow::Result<()> {
         .write(ctrl_char, &[CMD_STOP_WEIGHT_MEAS], WriteType::WithResponse)
         .await?;
     progressor.disconnect().await?;
+    println!("MVC: {:5.1} kg", max_weight);
     println!("Disconnected.");
 
     Ok(())
