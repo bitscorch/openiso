@@ -79,21 +79,37 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     let mut stream = progressor.notifications().await?;
-    while let Some(notification) = stream.next().await {
-        if notification.uuid == DATA_CHAR_UUID && !notification.value.is_empty() {
-            let data = &notification.value;
-            if data[0] == RES_WEIGHT_MEAS && data.len() >= 10 {
-                // Parse weight (f32 LE) and timestamp (u32 LE) from payload
-                for chunk in data[2..].chunks(8) {
-                    if chunk.len() == 8 {
-                        let weight = f32::from_le_bytes(chunk[0..4].try_into().unwrap());
-                        let timestamp = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
-                        println!("{:.1} kg  (t: {} µs)", weight, timestamp);
+    let ctrl_c = tokio::signal::ctrl_c();
+    tokio::pin!(ctrl_c);
+
+    loop {
+        tokio::select! {
+            Some(notification) = stream.next() => {
+                if notification.uuid == DATA_CHAR_UUID && !notification.value.is_empty() {
+                    let data = &notification.value;
+                    if data[0] == RES_WEIGHT_MEAS && data.len() >= 10 {
+                        for chunk in data[2..].chunks(8) {
+                            if chunk.len() == 8 {
+                                let weight = f32::from_le_bytes(chunk[0..4].try_into().unwrap());
+                                let timestamp = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+                                println!("{:.1} kg  (t: {} µs)", weight, timestamp);
+                            }
+                        }
                     }
                 }
             }
+            _ = &mut ctrl_c => {
+                println!("\nStopping measurement...");
+                break;
+            }
         }
     }
+
+    progressor
+        .write(ctrl_char, &[CMD_STOP_WEIGHT_MEAS], WriteType::WithResponse)
+        .await?;
+    progressor.disconnect().await?;
+    println!("Disconnected.");
 
     Ok(())
 }
