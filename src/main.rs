@@ -1,3 +1,5 @@
+// Tindeq Progressor BLE API: https://tindeq.com/progressor_api/
+
 use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter, WriteType};
 use btleplug::platform::Manager;
 use futures::StreamExt;
