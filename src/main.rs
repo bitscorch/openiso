@@ -2,8 +2,10 @@
 
 use btleplug::api::{Central, Manager as _, Peripheral, ScanFilter, WriteType};
 use btleplug::platform::Manager;
+use chrono::Local;
 use futures::StreamExt;
-use std::io::Write;
+use std::fs;
+use std::io::{BufWriter, Write};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -75,6 +77,12 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     tokio::time::sleep(Duration::from_millis(500)).await;
 
+    // Set up session CSV
+    fs::create_dir_all("sessions")?;
+    let session_path = format!("sessions/{}.csv", Local::now().format("%Y-%m-%d_%H-%M-%S"));
+    let mut csv = BufWriter::new(fs::File::create(&session_path)?);
+    writeln!(csv, "elapsed_s,weight_kg")?;
+
     // Start weight measurement
     println!("Starting measurement... (Ctrl+C to stop)");
     println!("    MVC:   0.0 kg");
@@ -103,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
                                     max_weight = weight;
                                 }
                                 let elapsed = start.elapsed().as_secs_f64();
+                                writeln!(csv, "{},{}", elapsed, weight).ok();
                                 print!("\x1b[2K\x1b[1A\x1b[2K\x1b[1A\x1b[2K\r    MVC: {:5.1} kg\nCurrent: {:5.1} kg | {:.1}s", max_weight, weight, elapsed);
                                 std::io::stdout().flush().ok();
                             }
@@ -117,11 +126,14 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    csv.flush()?;
+
     progressor
         .write(ctrl_char, &[CMD_STOP_WEIGHT_MEAS], WriteType::WithResponse)
         .await?;
     progressor.disconnect().await?;
     println!("MVC: {:5.1} kg", max_weight);
+    println!("Session saved to {}", session_path);
     println!("Disconnected.");
 
     Ok(())
