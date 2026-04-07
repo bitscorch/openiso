@@ -8,9 +8,10 @@ Early stage. Currently connects to the Progressor over BLE and streams live forc
 
 - [x] BLE scan, connect, and subscribe to Tindeq Progressor
 - [x] Parse weight + timestamp from notification stream
-- [ ] Compute MVC from raw data
-- [ ] Session recording and history
+- [x] Compute MVC from raw data
+- [x] Session recording and history
 - [ ] Visualization (TUI / Web UI)?
+  - [ ] Visualize power in power/time plot
 
 ## Requirements
 
